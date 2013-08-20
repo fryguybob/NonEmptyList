@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, BangPatterns #-}
 
 -- | A type-safe list that has at least one element.
 module Data.List.NonEmpty(
@@ -88,19 +88,23 @@ instance Semigroup (NonEmpty a) where
 nonEmpty :: a -- ^ The head.
             -> [a] -- ^ The tail.
             -> NonEmpty a
-nonEmpty = NonEmpty
+nonEmpty = (|:)
 
 -- | Constructs a non-empty list with the given head and tail (an alias for @nonEmpty@).
 (|:) :: a -- ^ The head.
         -> [a] -- ^ The tail.
         -> NonEmpty a
-(|:) = nonEmpty
+h |: ts = snf ts `seq` NonEmpty h ts
+
+snf :: [a] -> ()
+snf [] = ()
+snf (_:bs) = snf bs
 
 -- | Tries to convert a list to a @NonEmpty@ returning @Nothing@ if the given list is empty.
 toNonEmpty :: [a] -- ^ The list to convert.
               -> Maybe (NonEmpty a)
 toNonEmpty [] = Nothing
-toNonEmpty (h:t) = Just (NonEmpty h t)
+toNonEmpty (h:t) = Just (h |: t)
 
 -- | /WARNING: Fails if given the empty list./
 -- Tries to convert a list to a @NonEmpty@.
@@ -112,7 +116,7 @@ unsafeToNonEmpty = fromMaybe (error "unsafeToNonEmpty on empty list") . toNonEmp
 (.:) :: a -- ^ The value to prepend.
         -> NonEmpty a -- ^ The non-empty list to prepend to.
         -> NonEmpty a
-a .: NonEmpty h t = NonEmpty a (h:t)
+a .: NonEmpty h t = let !c = h:t in NonEmpty a c
 
 -- | Reduce left on the given non-empty list using a semigroup.
 suml :: (Semigroup a) => NonEmpty a -> a
